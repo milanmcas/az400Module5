@@ -57,55 +57,74 @@ jobs:
         
   # Use Bicep to deploy infrastructure + Publish webapp 
   deploy:
-    runs-on: ubuntu-latest
-    needs: buildandtest
-    environment:
-      name: 'Development'
-    steps:
-    
-    #Download the publish files created in previous job
-    - name: Download artifact from build job
+  runs-on: ubuntu-latest
+  needs: buildandtest
+  environment:
+    name: 'Development'
+  steps:
+    - name: Download .NET app artifact
       uses: actions/download-artifact@v4
       with:
         name: .net-app
         path: .net-app
-  
-    #Download the bicep templates from previous job
-    - name: Download artifact from build job
+
+    - name: Download Bicep template
       uses: actions/download-artifact@v4
       with:
         name: bicep-template
         path: bicep-template
-        
-   #Login in your azure subscription using a service principal (credentials stored as GitHub Secret in repo)
+
     - name: Azure Login
       uses: azure/login@v2
       with:
         creds: ${{ secrets.AZURE_CREDENTIALS }}
-           
-    # Deploy Azure WebApp using Bicep file
-    - name: deploy
-      uses: azure/arm-deploy@v2
-      with:
-        subscriptionId: ${{ env.SUBSCRIPTION-ID }}
-        resourceGroupName: ${{ env.RESOURCE-GROUP }}
-        template: bicep-template/webapp.bicep
-        parameters: 'webAppName=${{ env.WEBAPP-NAME }} location=${{ env.LOCATION }}'
-        failOnStdErr: false   
-    
-    # Publish website to Azure App Service (WebApp)
-    # Step disabled due to issue where the site sometimes can't be found: https://github.com/microsoft/pipelines-appservice-lib/issues/56. Instead deploy using CLI
-    - name: Publish Website to WebApp
-      if: false #Disable step due to comment above
-      uses: Azure/webapps-deploy@v3
-      with:
-        type: ZIP
-        app-name: ${{ env.WEBAPP-NAME  }}
-        package: .net-app/app.zip
 
-    # Publish website to Azure App Service using CLI (WebApp)
+    # Pre-deployment: Check SP permissions
+    - name: Check Service Principal Permissions
+      uses: Azure/cli@v2
+      with:
+        inlineScript: |
+          ROLE_COUNT=$(az role assignment list \
+            --assignee $(az account show --query user.name -o tsv) \
+            --scope /subscriptions/${{ env.SUBSCRIPTION-ID }}/resourceGroups/${{ env.RESOURCE-GROUP }} \
+            --query "length(@)")
+          echo "Role assignments count: $ROLE_COUNT"
+          if [ "$ROLE_COUNT" -eq 0 ]; then
+            echo "ERROR: Service Principal has no roles on the resource group. Aborting deployment."
+            exit 1
+          fi
+
+    # Upgrade Azure CLI to latest version
+    - name: Upgrade Azure CLI
+      run: az upgrade --yes
+
+    # Validate Bicep template
+    - name: Validate Bicep template
+      uses: Azure/cli@v2
+      with:
+        inlineScript: |
+          az deployment group validate \
+            --resource-group ${{ env.RESOURCE-GROUP }} \
+            --template-file bicep-template/webapp.bicep \
+            --parameters webAppName=${{ env.WEBAPP-NAME }} location=${{ env.LOCATION }}
+
+    # Deploy Bicep template
+    - name: Deploy Bicep Template
+      uses: Azure/cli@v2
+      with:
+        inlineScript: |
+          az deployment group create \
+            --resource-group ${{ env.RESOURCE-GROUP }} \
+            --template-file bicep-template/webapp.bicep \
+            --parameters webAppName=${{ env.WEBAPP-NAME }} location=${{ env.LOCATION }}
+
+    # Deploy website via ZIP
     - name: Publish Website to WebApp
       uses: Azure/cli@v2
       with:
         inlineScript: |
-             az webapp deploy --name ${{ env.WEBAPP-NAME }} --resource-group ${{ env.RESOURCE-GROUP }} --src-path .net-app/app.zip --type zip
+          az webapp deploy \
+            --name ${{ env.WEBAPP-NAME }} \
+            --resource-group ${{ env.RESOURCE-GROUP }} \
+            --src-path .net-app/app.zip \
+            --type zip
