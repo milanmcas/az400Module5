@@ -1,0 +1,34 @@
+name: eShopOnWeb Build and Test
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+env:
+  RESOURCE-GROUP: rg-eshoponweb
+  LOCATION: westus2
+  TEMPLATE-FILE: infra/webapp.bicep
+  SUBSCRIPTION-ID: a3a49cf0-afce-4ad3-8dcd-34be88f2cb93
+  WEBAPP-NAME: eshoponweb-webapp55229130
+
+jobs:
+  buildandtest:
+    runs-on: ubuntu-latest
+    steps:
+      # Checkout repository
+      - uses: actions/checkout@v4
+
+      # Setup .NET SDK
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      # Restore dependencies
+      - name: Restore dependencies
+        run: dotnet restore ./eShopOnWeb.sln
+
+      # Build solution
+      - name: Build wi
