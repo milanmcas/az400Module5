@@ -34,7 +34,9 @@ jobs:
       - name: Build with dotnet
         run: dotnet build ./eShopOnWeb.sln --configuration Release --no-restore
 
-     
+      # Test solution
+      - name: Test with dotnet
+        run: dotnet test ./eShopOnWeb.sln --configuration Release --no-build
 
       # Publish web project
       - name: dotnet publish
@@ -97,12 +99,12 @@ jobs:
               exit 1
             fi
 
-      # Install latest Bicep CLI to avoid Docker issues
-      - name: Install Bicep CLI
+      # Upgrade Bicep CLI (fix for container errors)
+      - name: Upgrade Bicep CLI
         uses: Azure/cli@v2
         with:
           inlineScript: |
-            az bicep install --force
+            az bicep upgrade
             az bicep version
 
       # Deploy Bicep Template
