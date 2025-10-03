@@ -50,44 +50,55 @@ jobs:
           name: bicep-template
           path: ${{ env.TEMPLATE-FILE }}
 
-  deploy:
+    deploy:
     runs-on: ubuntu-latest
     needs: buildandtest
     environment:
       name: 'Development'
     steps:
+      # Download artifacts from build job
       - name: Download .NET app artifact
         uses: actions/download-artifact@v4
         with:
           name: .net-app
           path: .net-app
-
+  
       - name: Download Bicep template
         uses: actions/download-artifact@v4
         with:
           name: bicep-template
           path: bicep-template
-
+  
+      # Login to Azure using Service Principal
       - name: Azure Login
         uses: azure/login@v2
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
-
-      # Upgrade Azure CLI to latest version
-      - name: Upgrade Azure CLI
-        run: az upgrade --yes
-
-      # Validate Bicep template
-      - name: Validate Bicep template
+  
+      # Check Service Principal Permissions
+      - name: Check Service Principal Permissions
         uses: Azure/cli@v2
         with:
           inlineScript: |
-            az deployment group validate \
-              --resource-group ${{ env.RESOURCE-GROUP }} \
-              --template-file bicep-template/webapp.bicep \
-              --parameters webAppName=${{ env.WEBAPP-NAME }} location=${{ env.LOCATION }}
-
-      # Deploy Bicep template
+            ROLE_COUNT=$(az role assignment list \
+              --assignee $(az account show --query user.name -o tsv) \
+              --scope /subscriptions/${{ env.SUBSCRIPTION-ID }}/resourceGroups/${{ env.RESOURCE-GROUP }} \
+              --query "length(@)")
+            echo "Role assignments count: $ROLE_COUNT"
+            if [ "$ROLE_COUNT" -eq 0 ]; then
+              echo "ERROR: Service Principal has no roles on the resource group. Aborting deployment."
+              exit 1
+            fi
+  
+      # Install latest Bicep CLI to avoid container issues
+      - name: Install Bicep CLI
+        uses: Azure/cli@v2
+        with:
+          inlineScript: |
+            az bicep install --force
+            az bicep version
+  
+      # Deploy Bicep Template
       - name: Deploy Bicep Template
         uses: Azure/cli@v2
         with:
@@ -96,7 +107,7 @@ jobs:
               --resource-group ${{ env.RESOURCE-GROUP }} \
               --template-file bicep-template/webapp.bicep \
               --parameters webAppName=${{ env.WEBAPP-NAME }} location=${{ env.LOCATION }}
-
+  
       # Deploy website via ZIP
       - name: Publish Website to WebApp
         uses: Azure/cli@v2
