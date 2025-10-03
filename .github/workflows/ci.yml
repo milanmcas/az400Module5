@@ -51,8 +51,8 @@ jobs:
           path: ${{ env.TEMPLATE-FILE }}
 
     deploy:
-    runs-on: ubuntu-latest
-    needs: buildandtest
+     runs-on: ubuntu-latest
+     needs: buildandtest
     environment:
       name: 'Development'
     steps:
