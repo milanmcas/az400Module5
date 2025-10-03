@@ -61,14 +61,12 @@ jobs:
     environment: Development
     steps:
       # Download artifacts
-      - name: Download .NET app artifact
-        uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v4
         with:
           name: dotnet-app
           path: dotnet-app
 
-      - name: Download Bicep template
-        uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v4
         with:
           name: bicep-template
           path: bicep-template
@@ -79,7 +77,11 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      # Deploy Bicep template
+      # Verify SP login
+      - name: Verify Azure Login
+        run: az account show
+
+      # Deploy Bicep template (native az command)
       - name: Deploy Bicep Template
         run: |
           az deployment group create \
@@ -87,8 +89,8 @@ jobs:
             --template-file bicep-template/webapp.bicep \
             --parameters webAppName=${{ env.WEBAPP-NAME }} location=${{ env.LOCATION }}
 
-      # Deploy website via ZIP
-      - name: Publish Website to WebApp
+      # Deploy website via ZIP (native az command)
+      - name: Deploy WebApp via ZIP
         run: |
           az webapp deploy \
             --name ${{ env.WEBAPP-NAME }} \
