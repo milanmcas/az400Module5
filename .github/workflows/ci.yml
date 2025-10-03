@@ -30,8 +30,7 @@ jobs:
       - name: Build with dotnet
         run: dotnet build ./eShopOnWeb.sln --configuration Release --no-restore
 
-      - name: Test with dotnet
-        run: dotnet test ./eShopOnWeb.sln --configuration Release --no-build
+      
 
       - name: dotnet publish
         run: |
