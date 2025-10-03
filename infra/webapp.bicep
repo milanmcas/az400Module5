@@ -1,5 +1,5 @@
-param webAppName string = uniqueString(resourceGroup().id) // Generate unique String for web app name
-param sku string = 'B1' // The SKU of App Service Plan
+param webAppName string            // Pass from workflow
+param sku string = 'B1'            // App Service Plan SKU
 param location string = resourceGroup().location
 
 var appServicePlanName = toLower('AppServicePlan-${webAppName}')
@@ -12,8 +12,11 @@ resource appServicePlan 'Microsoft.Web/serverfarms@2022-09-01' = {
   }
   sku: {
     name: sku
+    tier: 'Basic'
+    size: sku
   }
 }
+
 resource appService 'Microsoft.Web/sites@2022-09-01' = {
   name: webAppName
   kind: 'app'
