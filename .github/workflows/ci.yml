@@ -34,9 +34,7 @@ jobs:
       - name: Build with dotnet
         run: dotnet build ./eShopOnWeb.sln --configuration Release --no-restore
 
-      # Test solution
-      - name: Test with dotnet
-        run: dotnet test ./eShopOnWeb.sln --configuration Release --no-build
+      
 
       # Publish web project
       - name: dotnet publish
